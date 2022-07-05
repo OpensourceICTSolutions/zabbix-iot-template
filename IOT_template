@@ -1,0 +1,192 @@
+zabbix_export:
+  version: '6.0'
+  date: '2022-07-05T06:55:56Z'
+  groups:
+    -
+      uuid: 7df96b18c230490a9a0a9e2307226338
+      name: Templates
+  templates:
+    -
+      uuid: 764ab5c4cb0c436db3f95a1b48977e75
+      template: IOT_temperature
+      name: IOT_temperature
+      groups:
+        -
+          name: Templates
+      items:
+        -
+          uuid: 9865b3de4b9b4944a49b0dfa94c7b8ed
+          name: 'mqtt master item'
+          type: ZABBIX_ACTIVE
+          key: 'mqtt.get[{$MQTT_PROTOCOL}://{$MQTT_URL}:{$MQTT_PORT},{$MQTT_TOPIC},{$TTN_USER},{$TTN_API_TOKEN}]'
+          delay: '0'
+          trends: '0'
+          value_type: TEXT
+      discovery_rules:
+        -
+          uuid: ea055f14bf5a4b1f97a7e6e553577ca2
+          name: 'discover sensors'
+          type: DEPENDENT
+          key: disc.sensors
+          delay: '0'
+          item_prototypes:
+            -
+              uuid: aa3c00a3e75748e6a2aee4daf6f538ae
+              name: 'Battery status of {#SENSOR}'
+              type: DEPENDENT
+              key: 'bat.stat[{#SENSOR}]'
+              delay: '0'
+              valuemap:
+                name: 'Battery status'
+              preprocessing:
+                -
+                  type: REGEX
+                  parameters:
+                    - 'Bat_status\\":(\d),'
+                    - \1
+              master_item:
+                key: 'mqtt.get[{$MQTT_PROTOCOL}://{$MQTT_URL}:{$MQTT_PORT},{$MQTT_TOPIC},{$TTN_USER},{$TTN_API_TOKEN}]'
+              tags:
+                -
+                  tag: sensor
+                  value: '{#SENSOR}'
+            -
+              uuid: 6fb1cb9822644250bd579cf2a250385b
+              name: 'Battery voltage of {#SENSOR}'
+              type: DEPENDENT
+              key: 'bat.voltage[{#SENSOR}]'
+              delay: '0'
+              value_type: FLOAT
+              preprocessing:
+                -
+                  type: REGEX
+                  parameters:
+                    - 'BatV\\":(\d+|\d+.\d+),.'
+                    - \1
+              master_item:
+                key: 'mqtt.get[{$MQTT_PROTOCOL}://{$MQTT_URL}:{$MQTT_PORT},{$MQTT_TOPIC},{$TTN_USER},{$TTN_API_TOKEN}]'
+              tags:
+                -
+                  tag: sensor
+                  value: '{#SENSOR}'
+            -
+              uuid: da391ccf493640ca9ccb42523391bea0
+              name: 'Humidity of  {#SENSOR}'
+              type: DEPENDENT
+              key: 'humidity[{#SENSOR}]'
+              delay: '0'
+              units: '%'
+              preprocessing:
+                -
+                  type: REGEX
+                  parameters:
+                    - 'Hum_SHT\\":(\d+.\d+),'
+                    - \1
+              master_item:
+                key: 'mqtt.get[{$MQTT_PROTOCOL}://{$MQTT_URL}:{$MQTT_PORT},{$MQTT_TOPIC},{$TTN_USER},{$TTN_API_TOKEN}]'
+              tags:
+                -
+                  tag: sensor
+                  value: '{#SENSOR}'
+            -
+              uuid: d4a87035e5064141a3e2328fe7eb40eb
+              name: 'External temperature of {#SENSOR}'
+              type: DEPENDENT
+              key: 'temp.extern[{#SENSOR}]'
+              delay: '0'
+              value_type: FLOAT
+              units: c
+              preprocessing:
+                -
+                  type: REGEX
+                  parameters:
+                    - 'TempC_DS\\":(\d+.\d+),'
+                    - \1
+                -
+                  type: IN_RANGE
+                  parameters:
+                    - '-55'
+                    - '125'
+                  error_handler: CUSTOM_ERROR
+                  error_handler_params: 'No external sensor found'
+              master_item:
+                key: 'mqtt.get[{$MQTT_PROTOCOL}://{$MQTT_URL}:{$MQTT_PORT},{$MQTT_TOPIC},{$TTN_USER},{$TTN_API_TOKEN}]'
+              tags:
+                -
+                  tag: sensor
+                  value: '{#SENSOR}'
+            -
+              uuid: 045ab542ef8344c98671c4b7e71787b1
+              name: 'Internal temperature of {#SENSOR}'
+              type: DEPENDENT
+              key: 'temp.intern[{#SENSOR}]'
+              delay: '0'
+              value_type: FLOAT
+              units: c
+              preprocessing:
+                -
+                  type: REGEX
+                  parameters:
+                    - 'TempC_SHT\\":(\d+.\d+)}'
+                    - \1
+              master_item:
+                key: 'mqtt.get[{$MQTT_PROTOCOL}://{$MQTT_URL}:{$MQTT_PORT},{$MQTT_TOPIC},{$TTN_USER},{$TTN_API_TOKEN}]'
+              tags:
+                -
+                  tag: sensor
+                  value: '{#SENSOR}'
+          master_item:
+            key: 'mqtt.get[{$MQTT_PROTOCOL}://{$MQTT_URL}:{$MQTT_PORT},{$MQTT_TOPIC},{$TTN_USER},{$TTN_API_TOKEN}]'
+          preprocessing:
+            -
+              type: JAVASCRIPT
+              parameters:
+                - |
+                  var lld = [];
+                  var regexp = /@ttn\/devices\/([\w-]+)/g;
+                  var lines = value.split("\n");
+                  var lines_num = lines.length;
+                  for (i = 0; i < lines_num; i++)
+                  {
+                    var match = regexp.exec(lines);
+                    var row = {};
+                    row["{#SENSOR}"] = match[1];
+                    lld.push(row);
+                  }
+                  return JSON.stringify(lld);
+      macros:
+        -
+          macro: '{$MQTT_PORT}'
+          value: '8883'
+        -
+          macro: '{$MQTT_PROTOCOL}'
+          value: tls
+        -
+          macro: '{$MQTT_TOPIC}'
+          value: '#'
+        -
+          macro: '{$MQTT_URL}'
+          value: eu1.cloud.thethings.network
+        -
+          macro: '{$TTN_API_TOKEN}'
+          value: <TOKEN>
+        -
+          macro: '{$TTN_USER}'
+          value: <USER>
+      valuemaps:
+        -
+          uuid: 94e29d54330f41488d43f0c846de6f8e
+          name: 'Battery status'
+          mappings:
+            -
+              value: '3'
+              newvalue: Good
+            -
+              value: '2'
+              newvalue: Ok
+            -
+              value: '1'
+              newvalue: Low
+            -
+              value: '0'
+              newvalue: 'Ultra Low'
